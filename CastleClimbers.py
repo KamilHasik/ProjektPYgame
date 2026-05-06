@@ -12,7 +12,7 @@ y = HEIGHT - 100
 y_velocity = 0
 gravity = 0.6
 jump_power = -18
-player_size = 50
+player_size = 64
 wall_thickness = 400
 
 left_wall = pygame.Rect(0, 0, wall_thickness, HEIGHT)
@@ -27,7 +27,7 @@ tile_names = ["tile 1.jpg", "tile 2.jpg", "tile 3.jpg",
               "tile 7.jpg", "tile 8.jpg", "tile 9.jpg"]
 
 for tile_name in tile_names:
-    tile_path = os.path.join("tiles", tile_name)
+    tile_path = os.path.join("Graphic", "Tiles", tile_name)
     try:
         tile_image = pygame.image.load(tile_path)
         tile_image = pygame.transform.scale(tile_image, (tile_width, tile_height))
@@ -36,6 +36,49 @@ for tile_name in tile_names:
         fallback = pygame.Surface((tile_width, tile_height))
         fallback.fill((150, 150, 150))
         tiles.append(fallback)
+
+walking_right_frames = []
+walking_left_frames = []
+flying_frames = []
+idle_frame = None
+
+for i in range(1, 9):
+    try:
+        path = os.path.join("Graphic", "Player", f"Walkin right_{i}.png")
+        img = pygame.image.load(path)
+        img = pygame.transform.scale(img, (player_size, player_size))
+        walking_right_frames.append(img)
+        left_img = pygame.transform.flip(img, True, False)
+        walking_left_frames.append(left_img)
+    except:
+        pass
+
+for i in range(1, 9):
+    try:
+        path = os.path.join("Graphic", "Player", f"Flying_{i}.png")
+        img = pygame.image.load(path)
+        img = pygame.transform.scale(img, (player_size, player_size))
+        flying_frames.append(img)
+    except:
+        pass
+
+try:
+    path = os.path.join("Graphic", "Player", "Player Sitting Straight.jpg")
+    idle_frame = pygame.image.load(path)
+    idle_frame = pygame.transform.scale(idle_frame, (player_size, player_size))
+except:
+    idle_frame = pygame.Surface((player_size, player_size))
+    idle_frame.fill((20, 200, 20))
+
+if not walking_right_frames:
+    walking_right_frames = [idle_frame]
+    walking_left_frames = [idle_frame]
+if not flying_frames:
+    flying_frames = [idle_frame]
+
+animation_index = 0
+animation_speed = 0.15
+facing_right = True
 
 class Platform:
     def __init__(self, y_pos, side):
@@ -97,13 +140,27 @@ while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
             run = False
-
+    
     keys = pygame.key.get_pressed()
     
-    if keys[pygame.K_a]: x -= 6
-    if keys[pygame.K_d]: x += 6
+    moving_left = keys[pygame.K_a]
+    moving_right = keys[pygame.K_d]
+    
+    if moving_left:
+        x -= 6
+        facing_right = False
+    if moving_right:
+        x += 6
+        facing_right = True
     
     x = max(wall_thickness, min(x, WIDTH - wall_thickness - player_size))
+    
+    if moving_left or moving_right:
+        animation_index += animation_speed
+        if animation_index >= len(walking_right_frames):
+            animation_index = 0
+    else:
+        animation_index = 0
     
     on_ground = False
     
@@ -137,7 +194,17 @@ while run:
     for platform in platforms:
         platform.draw(window)
     
-    pygame.draw.rect(window, (20, 200, 20), (x, y - camera_y, player_size, player_size))
+    if y_velocity != 0:
+        frame = flying_frames[int(animation_index) % len(flying_frames)]
+    elif moving_left or moving_right:
+        if facing_right:
+            frame = walking_right_frames[int(animation_index) % len(walking_right_frames)]
+        else:
+            frame = walking_left_frames[int(animation_index) % len(walking_left_frames)]
+    else:
+        frame = idle_frame
+    
+    window.blit(frame, (x, y - camera_y))
     pygame.display.update()
 
 pygame.quit()
