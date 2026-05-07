@@ -9,21 +9,27 @@ WIDTH, HEIGHT = window.get_size()
 
 camera_y = 0
 
+# SKALOWANE WARTOŚCI - 1/3 na ściany, 1/3 na środek
+wall_thickness = WIDTH // 3
+right_wall_x = WIDTH - wall_thickness
+
+player_size = int(HEIGHT * 0.1)
+platform_width = int(WIDTH * 0.12)
+platform_height = int(HEIGHT * 0.02)
+
+jump_power = -9
+gravity = 0.35
+move_speed = int(WIDTH * 0.008)
+
 x = WIDTH // 2
-y = HEIGHT - 250
+y = HEIGHT - int(HEIGHT * 0.15)
 y_velocity = 0
 
-gravity = 0.5
-jump_power = -16
-player_size = 80
-
-danger_y = HEIGHT + 500
-danger_speed = 1.2
-
-wall_thickness = 400
+danger_y = HEIGHT + int(HEIGHT * 0.3)
+danger_speed = HEIGHT * 0.0008
 
 left_wall = pygame.Rect(0, 0, wall_thickness, 100000)
-right_wall = pygame.Rect(WIDTH - wall_thickness, 0, wall_thickness, 100000)
+right_wall = pygame.Rect(right_wall_x, 0, wall_thickness, 100000)
 
 tile_width = wall_thickness // 2
 tile_height = tile_width
@@ -54,32 +60,68 @@ for tile_name in tile_names:
         tiles.append(fallback)
 
 flying_frames = []
-for i in range(10):
+for i in range(36):
     frame_path = os.path.join("Graphic", "Player", "Flying", f"Flying {i}.png")
     try:
         frame = pygame.image.load(frame_path)
         frame = pygame.transform.scale(frame, (player_size, player_size))
         flying_frames.append(frame)
-        print(f"Zaladowano: Flying {i}.png")
-    except Exception as e:
-        print(f"Nie zaladowano Flying {i}.png: {e}")
+    except:
         fallback = pygame.Surface((player_size, player_size))
         fallback.fill((255, 255, 0))
         flying_frames.append(fallback)
 
+walking_right_frames = []
+for i in range(36):
+    frame_path = os.path.join("Graphic", "Player", "WalkingRight", f"WalkRight {i}.png")
+    try:
+        frame = pygame.image.load(frame_path)
+        frame = pygame.transform.scale(frame, (player_size, player_size))
+        walking_right_frames.append(frame)
+    except:
+        fallback = pygame.Surface((player_size, player_size))
+        fallback.fill((0, 255, 0))
+        walking_right_frames.append(fallback)
+
+walking_left_frames = []
+for i in range(36):
+    frame_path = os.path.join("Graphic", "Player", "WalkingLeft", f"WalkLeft {i}.png")
+    try:
+        frame = pygame.image.load(frame_path)
+        frame = pygame.transform.scale(frame, (player_size, player_size))
+        walking_left_frames.append(frame)
+    except:
+        fallback = pygame.Surface((player_size, player_size))
+        fallback.fill((0, 255, 0))
+        walking_left_frames.append(fallback)
+
+idle_image = None
+idle_path = os.path.join("Graphic", "Player", "Player Sitting Straight.jpg")
+try:
+    idle_image = pygame.image.load(idle_path)
+    idle_image = pygame.transform.scale(idle_image, (player_size, player_size))
+    print("Zaladowano idle")
+except:
+    idle_image = pygame.Surface((player_size, player_size))
+    idle_image.fill((0, 200, 0))
+    print("Nie zaladowano idle")
+
 current_frame = 0
 animation_timer = 0
+facing_right = True
+moving = False
 
 class Platform:
     def __init__(self, y_pos, side):
         self.side = side
-        platform_width = 220
-        platform_height = 25
+        self.side = side
+        platform_width = int(WIDTH * 0.12)
+        platform_height = int(HEIGHT * 0.02)
         
         if side == "left":
             x_pos = wall_thickness
         else:
-            x_pos = WIDTH - wall_thickness - platform_width
+            x_pos = right_wall_x - platform_width
         
         self.rect = pygame.Rect(x_pos, y_pos, platform_width, platform_height)
         self.color = (139, 69, 19)
@@ -100,12 +142,17 @@ class Platform:
             pygame.draw.rect(surface, (100, 50, 0), (self.rect.x, screen_y, self.rect.width, self.rect.height), 3)
 
 platforms = []
-y_pos = HEIGHT - 250
+y_pos = HEIGHT - int(HEIGHT * 0.15)
 platforms.append(Platform(y_pos, "left"))
 
 for i in range(199):
-    side = random.choice(["left", "right"])
-    jump_range = random.randint(170, 230)
+    last_side = platforms[-1].side
+    if last_side == "left":
+        side = random.choice(["left", "right"])
+    else:
+        side = random.choice(["left", "right"])
+    
+    jump_range = random.randint(int(HEIGHT * 0.1), int(HEIGHT * 0.14))
     y_pos -= jump_range
     platforms.append(Platform(y_pos, side))
 
@@ -114,7 +161,7 @@ run = True
 on_ground = True
 jump_timer = 0
 score = 0
-font = pygame.font.Font(None, 48)
+font = pygame.font.Font(None, int(HEIGHT * 0.05))
 
 def draw_tiled_wall(surface, wall_rect, tile_images):
     tiles_in_width = 2
@@ -140,12 +187,17 @@ while run:
 
     keys = pygame.key.get_pressed()
 
+    moving = False
     if keys[pygame.K_a]:
-        x -= 9
+        x -= move_speed
+        facing_right = False
+        moving = True
     if keys[pygame.K_d]:
-        x += 9
+        x += move_speed
+        facing_right = True
+        moving = True
 
-    x = max(wall_thickness, min(x, WIDTH - wall_thickness - player_size))
+    x = max(wall_thickness, min(x, right_wall_x - player_size))
 
     if jump_timer > 0:
         jump_timer -= 1
@@ -156,7 +208,7 @@ while run:
         if not platform.visible:
             continue
         if (y_velocity >= 0 and
-            y + player_size <= platform.rect.y + 20 and
+            y + player_size <= platform.rect.y + platform_height + 5 and
             y + player_size + y_velocity >= platform.rect.y and
             x + player_size > platform.rect.x and
             x < platform.rect.x + platform.rect.width):
@@ -188,28 +240,24 @@ while run:
     y_velocity += gravity
     y += y_velocity
 
-    if not on_ground:
-        animation_timer += 1
-        if animation_timer >= 3:
-            animation_timer = 0
-            current_frame = (current_frame + 1) % len(flying_frames)
-    else:
-        current_frame = 0
+    animation_timer += 1
+    if animation_timer >= 4:
         animation_timer = 0
+        current_frame = (current_frame + 1) % 36
 
     camera_y = y - HEIGHT * 2 // 3
 
     danger_y -= danger_speed
-    danger_speed += 0.0005
+    danger_speed += HEIGHT * 0.000003
 
     if y + player_size > danger_y:
-        y = HEIGHT - 250
+        y = HEIGHT - int(HEIGHT * 0.15)
         x = WIDTH // 2
         y_velocity = 0
         camera_y = 0
         score = 0
-        danger_y = HEIGHT + 500
-        danger_speed = 4
+        danger_y = HEIGHT + int(HEIGHT * 0.3)
+        danger_speed = HEIGHT * 0.0008
         for platform in platforms:
             platform.scored = False
             platform.visible = True
@@ -226,10 +274,19 @@ while run:
         platform.draw(window)
 
     player_screen_y = y - camera_y
-    if not on_ground and flying_frames:
+    
+    if not on_ground:
         window.blit(flying_frames[current_frame], (x, player_screen_y))
+    elif moving:
+        if facing_right:
+            window.blit(walking_right_frames[current_frame], (x, player_screen_y))
+        else:
+            window.blit(walking_left_frames[current_frame], (x, player_screen_y))
     else:
-        pygame.draw.rect(window, (20, 200, 20), (x, player_screen_y, player_size, player_size))
+        if idle_image:
+            window.blit(idle_image, (x, player_screen_y))
+        else:
+            pygame.draw.rect(window, (20, 200, 20), (x, player_screen_y, player_size, player_size))
 
     score_text = font.render(f"Score: {score}", True, (255, 255, 255))
     window.blit(score_text, (20, 20))
@@ -238,7 +295,7 @@ while run:
     if remaining < 0:
         remaining = 0
     remaining_text = font.render(f"Remaining: {remaining}", True, (255, 255, 255))
-    window.blit(remaining_text, (20, 70))
+    window.blit(remaining_text, (20, 20 + int(HEIGHT * 0.06)))
 
     if score >= 200:
         win_text = font.render("YOU WIN! Press ESC", True, (255, 215, 0))
