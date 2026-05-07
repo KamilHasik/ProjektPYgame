@@ -3,31 +3,49 @@ import os
 import random
 
 pygame.init()
+
 window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 WIDTH, HEIGHT = window.get_size()
 
 camera_y = 0
+
 x = WIDTH // 2
-y = HEIGHT - 100
+y = HEIGHT - 250
 y_velocity = 0
-gravity = 0.6
-jump_power = -18
-player_size = 64
+
+gravity = 0.5
+jump_power = -16
+player_size = 50
+
+danger_y = HEIGHT + 500
+danger_speed = 1.2
+
 wall_thickness = 400
 
-left_wall = pygame.Rect(0, 0, wall_thickness, HEIGHT)
-right_wall = pygame.Rect(WIDTH - wall_thickness, 0, wall_thickness, HEIGHT)
+left_wall = pygame.Rect(0, 0, wall_thickness, 100000)
+right_wall = pygame.Rect(WIDTH - wall_thickness, 0, wall_thickness, 100000)
 
 tile_width = wall_thickness // 2
-tile_height = tile_width  
+tile_height = tile_width
 
 tiles = []
-tile_names = ["tile 1.jpg", "tile 2.jpg", "tile 3.jpg", 
-              "tile 4.jpg", "tile 5.jpg", "tile 6.jpg",
-              "tile 7.jpg", "tile 8.jpg", "tile 9.jpg"]
+
+tile_names = [
+    "tile 1.jpg",
+    "tile 2.jpg",
+    "tile 3.jpg",
+    "tile 4.jpg",
+    "tile 5.jpg",
+    "tile 6.jpg",
+    "tile 7.jpg",
+    "tile 8.jpg",
+    "tile 9.jpg"
+]
 
 for tile_name in tile_names:
+
     tile_path = os.path.join("Graphic", "Tiles", tile_name)
+
     try:
         tile_image = pygame.image.load(tile_path)
         tile_image = pygame.transform.scale(tile_image, (tile_width, tile_height))
@@ -37,174 +55,222 @@ for tile_name in tile_names:
         fallback.fill((150, 150, 150))
         tiles.append(fallback)
 
-walking_right_frames = []
-walking_left_frames = []
-flying_frames = []
-idle_frame = None
-
-for i in range(1, 9):
-    try:
-        path = os.path.join("Graphic", "Player", f"Walkin right_{i}.png")
-        img = pygame.image.load(path)
-        img = pygame.transform.scale(img, (player_size, player_size))
-        walking_right_frames.append(img)
-        left_img = pygame.transform.flip(img, True, False)
-        walking_left_frames.append(left_img)
-    except:
-        pass
-
-for i in range(1, 9):
-    try:
-        path = os.path.join("Graphic", "Player", f"Flying_{i}.png")
-        img = pygame.image.load(path)
-        img = pygame.transform.scale(img, (player_size, player_size))
-        flying_frames.append(img)
-    except:
-        pass
-
-try:
-    path = os.path.join("Graphic", "Player", "Player Sitting Straight.jpg")
-    idle_frame = pygame.image.load(path)
-    idle_frame = pygame.transform.scale(idle_frame, (player_size, player_size))
-except:
-    idle_frame = pygame.Surface((player_size, player_size))
-    idle_frame.fill((20, 200, 20))
-
-if not walking_right_frames:
-    walking_right_frames = [idle_frame]
-    walking_left_frames = [idle_frame]
-if not flying_frames:
-    flying_frames = [idle_frame]
-
-animation_index = 0
-animation_speed = 0.15
-facing_right = True
 
 class Platform:
+
     def __init__(self, y_pos, side):
+
         self.side = side
-        platform_width = random.randint(80, 150)
+
+        platform_width = 180
         platform_height = 20
-        
-        if side == 'left':
+
+        if side == "left":
             x_pos = wall_thickness
         else:
             x_pos = WIDTH - wall_thickness - platform_width
-        
+
         self.rect = pygame.Rect(x_pos, y_pos, platform_width, platform_height)
+
         self.color = (139, 69, 19)
-    
+
+        self.scored = False
+        self.breaking = False
+        self.break_timer = 0
+        self.visible = True
+
     def draw(self, surface):
+
+        if not self.visible:
+            return
+
         screen_y = self.rect.y - camera_y
+
         if -50 < screen_y < HEIGHT + 50:
-            pygame.draw.rect(surface, self.color, (self.rect.x, screen_y, self.rect.width, self.rect.height))
+
+            color = self.color
+
+            if self.breaking:
+                color = (220, 60, 60)
+
+            pygame.draw.rect(surface, color, (self.rect.x, screen_y, self.rect.width, self.rect.height))
+
             pygame.draw.rect(surface, (100, 50, 0), (self.rect.x, screen_y, self.rect.width, self.rect.height), 2)
 
+
 platforms = []
-last_side = None
-for i in range(30):
-    if last_side == 'left':
-        side = 'right'
-    else:
-        side = 'left'
-    last_side = side
-    y_pos = HEIGHT - 100 - i * 80
+
+y_pos = HEIGHT - 250
+
+platforms.append(Platform(y_pos, "left"))
+
+for i in range(199):
+
+    side = random.choice(["left", "right"])
+    jump_range = random.randint(170, 230)
+
+    y_pos -= jump_range
+
     platforms.append(Platform(y_pos, side))
+
 
 clock = pygame.time.Clock()
 run = True
+
 on_ground = True
+jump_timer = 0
+
+score = 0
+
+font = pygame.font.Font(None, 48)
+
 
 def draw_tiled_wall(surface, wall_rect, tile_images):
+
     tiles_in_width = 2
-    tiles_in_height = (wall_rect.height + tile_height - 1) // tile_height
-    
-    for row in range(tiles_in_height):
+    total_height = 100000
+
+    for row in range(0, total_height // tile_height + 2):
+
         for col in range(tiles_in_width):
-            tile_index = (col % 3) + (row % 3) * 3
-            tile_image = tile_images[tile_index % len(tile_images)]
+
+            tile_index = (row * 3 + col) % len(tile_images)
+            tile_image = tile_images[tile_index]
+
             tile_x = wall_rect.x + col * tile_width
             tile_y = wall_rect.y + row * tile_height - camera_y
-            
-            if 0 < tile_y + tile_height and tile_y < HEIGHT:
-                if tile_y + tile_height > HEIGHT:
-                    crop_height = HEIGHT - tile_y
-                    if crop_height > 0:
-                        surface.blit(tile_image.subsurface((0, 0, tile_width, crop_height)), (tile_x, tile_y))
-                else:
-                    surface.blit(tile_image, (tile_x, tile_y))
+
+            if tile_y + tile_height > -100 and tile_y < HEIGHT + 100:
+                surface.blit(tile_image, (tile_x, tile_y))
+
 
 while run:
+
     clock.tick(60)
-    
+
     for event in pygame.event.get():
-        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+
+        if event.type == pygame.QUIT:
             run = False
-    
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                run = False
+
     keys = pygame.key.get_pressed()
-    
-    moving_left = keys[pygame.K_a]
-    moving_right = keys[pygame.K_d]
-    
-    if moving_left:
-        x -= 6
-        facing_right = False
-    if moving_right:
-        x += 6
-        facing_right = True
-    
+
+    if keys[pygame.K_a]:
+        x -= 7
+
+    if keys[pygame.K_d]:
+        x += 7
+
     x = max(wall_thickness, min(x, WIDTH - wall_thickness - player_size))
-    
-    if moving_left or moving_right:
-        animation_index += animation_speed
-        if animation_index >= len(walking_right_frames):
-            animation_index = 0
-    else:
-        animation_index = 0
-    
+
+    if jump_timer > 0:
+        jump_timer -= 1
+
     on_ground = False
-    
+
     for platform in platforms:
-        if (y + player_size >= platform.rect.y and y + player_size <= platform.rect.y + 10 and
-            x + player_size > platform.rect.x and x < platform.rect.x + platform.rect.width):
+
+        if not platform.visible:
+            continue
+
+        if (
+            y_velocity >= 0 and
+            y + player_size <= platform.rect.y + 15 and
+            y + player_size + y_velocity >= platform.rect.y and
+            x + player_size > platform.rect.x and
+            x < platform.rect.x + platform.rect.width
+        ):
+
             y = platform.rect.y - player_size
             y_velocity = 0
             on_ground = True
+
+            if not platform.scored:
+                platform.scored = True
+                score += 1
+
+            if not platform.breaking:
+                platform.breaking = True
+                platform.break_timer = pygame.time.get_ticks()
+
             break
-    
+
     if not on_ground and y + player_size >= HEIGHT:
         y = HEIGHT - player_size
         y_velocity = 0
         on_ground = True
-    
-    if (keys[pygame.K_w] or keys[pygame.K_UP]) and on_ground:
-        y_velocity = jump_power
-        on_ground = False
-    
+
+    if on_ground and jump_timer == 0:
+
+        if keys[pygame.K_w] or keys[pygame.K_UP] or keys[pygame.K_SPACE]:
+            y_velocity = jump_power
+            on_ground = False
+            jump_timer = 12
+
     y_velocity += gravity
     y += y_velocity
-    
+
     camera_y = y - HEIGHT * 2 // 3
-    if camera_y < 0: camera_y = 0
-    
+
+    danger_y -= danger_speed
+    danger_speed += 0.0005
+
+    if y + player_size > danger_y:
+
+        y = HEIGHT - 250
+        x = WIDTH // 2
+        y_velocity = 0
+        camera_y = 0
+        score = 0
+
+        danger_y = HEIGHT + 500
+        danger_speed = 4
+
+        for platform in platforms:
+            platform.scored = False
+            platform.visible = True
+            platform.breaking = False
+
     window.fill((52, 55, 235))
+
     draw_tiled_wall(window, left_wall, tiles)
     draw_tiled_wall(window, right_wall, tiles)
-    
+
+    danger_screen_y = danger_y - camera_y
+
+    pygame.draw.rect(window, (255, 40, 40), (0, danger_screen_y, WIDTH, HEIGHT))
+
     for platform in platforms:
         platform.draw(window)
-    
-    if y_velocity != 0:
-        frame = flying_frames[int(animation_index) % len(flying_frames)]
-    elif moving_left or moving_right:
-        if facing_right:
-            frame = walking_right_frames[int(animation_index) % len(walking_right_frames)]
-        else:
-            frame = walking_left_frames[int(animation_index) % len(walking_left_frames)]
-    else:
-        frame = idle_frame
-    
-    window.blit(frame, (x, y - camera_y))
+
+    pygame.draw.rect(window, (20, 200, 20), (x, y - camera_y, player_size, player_size))
+
+    score_text = font.render(f"Score: {score}", True, (255, 255, 255))
+    window.blit(score_text, (20, 20))
+
+    remaining = 200 - score
+    if remaining < 0:
+        remaining = 0
+
+    remaining_text = font.render(f"Remaining: {remaining}", True, (255, 255, 255))
+    window.blit(remaining_text, (20, 70))
+
+    if score >= 200:
+        win_text = font.render("YOU WIN! Press ESC", True, (255, 215, 0))
+        win_rect = win_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        window.blit(win_text, win_rect)
+
+    for platform in platforms:
+
+        if platform.breaking and platform.visible:
+
+            if pygame.time.get_ticks() - platform.break_timer >= 200:
+                platform.visible = False
+
     pygame.display.update()
 
 pygame.quit()
