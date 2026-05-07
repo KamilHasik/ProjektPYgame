@@ -17,7 +17,7 @@ player_size = int(HEIGHT * 0.1)
 platform_width = int(WIDTH * 0.12)
 platform_height = int(HEIGHT * 0.02)
 
-jump_power = -9
+jump_power = -10.5
 gravity = 0.35
 move_speed = int(WIDTH * 0.008)
 
@@ -95,16 +95,17 @@ for i in range(36):
         fallback.fill((0, 255, 0))
         walking_left_frames.append(fallback)
 
-idle_image = None
-idle_path = os.path.join("Graphic", "Player", "Player Sitting Straight.jpg")
-try:
-    idle_image = pygame.image.load(idle_path)
-    idle_image = pygame.transform.scale(idle_image, (player_size, player_size))
-    print("Zaladowano idle")
-except:
-    idle_image = pygame.Surface((player_size, player_size))
-    idle_image.fill((0, 200, 0))
-    print("Nie zaladowano idle")
+idle_frames = []
+for i in range(36):
+    frame_path = os.path.join("Graphic", "Player", "Idle", f"Idle {i}.png")
+    try:
+        frame = pygame.image.load(frame_path)
+        frame = pygame.transform.scale(frame, (player_size, player_size))
+        idle_frames.append(frame)
+    except:
+        fallback = pygame.Surface((player_size, player_size))
+        fallback.fill((0, 200, 0))
+        idle_frames.append(fallback)
 
 current_frame = 0
 animation_timer = 0
@@ -113,7 +114,6 @@ moving = False
 
 class Platform:
     def __init__(self, y_pos, side):
-        self.side = side
         self.side = side
         platform_width = int(WIDTH * 0.12)
         platform_height = int(HEIGHT * 0.02)
@@ -283,10 +283,7 @@ while run:
         else:
             window.blit(walking_left_frames[current_frame], (x, player_screen_y))
     else:
-        if idle_image:
-            window.blit(idle_image, (x, player_screen_y))
-        else:
-            pygame.draw.rect(window, (20, 200, 20), (x, player_screen_y, player_size, player_size))
+        window.blit(idle_frames[current_frame], (x, player_screen_y))
 
     score_text = font.render(f"Score: {score}", True, (255, 255, 255))
     window.blit(score_text, (20, 20))
@@ -304,7 +301,7 @@ while run:
 
     for platform in platforms:
         if platform.breaking and platform.visible:
-            if pygame.time.get_ticks() - platform.break_timer >= 200:
+            if pygame.time.get_ticks() - platform.break_timer >= 400:
                 platform.visible = False
 
     pygame.display.update()
