@@ -26,13 +26,23 @@ y = HEIGHT - int(HEIGHT * 0.15)
 y_velocity = 0
 
 danger_y = HEIGHT + int(HEIGHT * 0.3)
-danger_speed = HEIGHT * 0.0008
+danger_speed = 2 # STAŁA PRĘDKOŚĆ (bez przyspieszania)
 
 left_wall = pygame.Rect(0, 0, wall_thickness, 100000)
 right_wall = pygame.Rect(right_wall_x, 0, wall_thickness, 100000)
 
 tile_width = wall_thickness // 2
 tile_height = tile_width
+
+# Wczytanie tła
+background_image = None
+background_path = os.path.join("Graphic", "Player", "Background.jpg")
+try:
+    background_image = pygame.image.load(background_path)
+    background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))
+    print("Zaladowano tło")
+except:
+    print("Nie zaladowano tła")
 
 tiles = []
 
@@ -247,8 +257,7 @@ while run:
 
     camera_y = y - HEIGHT * 2 // 3
 
-    danger_y -= danger_speed
-    danger_speed += HEIGHT * 0.000003
+    danger_y -= danger_speed  # stała prędkość, bez przyspieszania
 
     if y + player_size > danger_y:
         y = HEIGHT - int(HEIGHT * 0.15)
@@ -257,13 +266,19 @@ while run:
         camera_y = 0
         score = 0
         danger_y = HEIGHT + int(HEIGHT * 0.3)
-        danger_speed = HEIGHT * 0.0008
         for platform in platforms:
             platform.scored = False
             platform.visible = True
             platform.breaking = False
 
-    window.fill((52, 55, 235))
+    # Rysowanie tła
+    if background_image:
+        bg_y = camera_y * 0.3
+        window.blit(background_image, (0, -bg_y % HEIGHT))
+        window.blit(background_image, (0, -bg_y % HEIGHT - HEIGHT))
+    else:
+        window.fill((52, 55, 235))
+    
     draw_tiled_wall(window, left_wall, tiles)
     draw_tiled_wall(window, right_wall, tiles)
 
@@ -301,7 +316,7 @@ while run:
 
     for platform in platforms:
         if platform.breaking and platform.visible:
-            if pygame.time.get_ticks() - platform.break_timer >= 400:
+            if pygame.time.get_ticks() - platform.break_timer >= 1000:
                 platform.visible = False
 
     pygame.display.update()
