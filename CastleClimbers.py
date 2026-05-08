@@ -9,24 +9,23 @@ WIDTH, HEIGHT = window.get_size()
 
 camera_y = 0
 
-# SKALOWANE WARTOŚCI - 1/3 na ściany, 1/3 na środek
 wall_thickness = WIDTH // 3
 right_wall_x = WIDTH - wall_thickness
 
-player_size = int(HEIGHT * 0.1)
+player_size = int(HEIGHT * 0.15)
 platform_width = int(WIDTH * 0.12)
-platform_height = int(HEIGHT * 0.02)
+platform_height = int(HEIGHT * 0.025)
 
-jump_power = -10.5
-gravity = 0.35
-move_speed = int(WIDTH * 0.008)
+jump_power = -14
+gravity = 0.45
+move_speed = int(WIDTH * 0.01)
 
 x = WIDTH // 2
 y = HEIGHT - int(HEIGHT * 0.15)
 y_velocity = 0
 
 danger_y = HEIGHT + int(HEIGHT * 0.3)
-danger_speed = 2 # STAŁA PRĘDKOŚĆ (bez przyspieszania)
+danger_speed = 2
 
 left_wall = pygame.Rect(0, 0, wall_thickness, 100000)
 right_wall = pygame.Rect(right_wall_x, 0, wall_thickness, 100000)
@@ -34,13 +33,11 @@ right_wall = pygame.Rect(right_wall_x, 0, wall_thickness, 100000)
 tile_width = wall_thickness // 2
 tile_height = tile_width
 
-# Wczytanie tła
 background_image = None
 background_path = os.path.join("Graphic", "Player", "Background.jpg")
 try:
     background_image = pygame.image.load(background_path)
     background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))
-    print("Zaladowano tło")
 except:
     print("Nie zaladowano tła")
 
@@ -126,7 +123,7 @@ class Platform:
     def __init__(self, y_pos, side):
         self.side = side
         platform_width = int(WIDTH * 0.12)
-        platform_height = int(HEIGHT * 0.02)
+        platform_height = int(HEIGHT * 0.025)
         
         if side == "left":
             x_pos = wall_thickness
@@ -162,7 +159,7 @@ for i in range(199):
     else:
         side = random.choice(["left", "right"])
     
-    jump_range = random.randint(int(HEIGHT * 0.1), int(HEIGHT * 0.14))
+    jump_range = random.randint(int(HEIGHT * 0.18), int(HEIGHT * 0.22))
     y_pos -= jump_range
     platforms.append(Platform(y_pos, side))
 
@@ -257,7 +254,7 @@ while run:
 
     camera_y = y - HEIGHT * 2 // 3
 
-    danger_y -= danger_speed  # stała prędkość, bez przyspieszania
+    danger_y -= danger_speed
 
     if y + player_size > danger_y:
         y = HEIGHT - int(HEIGHT * 0.15)
@@ -271,11 +268,8 @@ while run:
             platform.visible = True
             platform.breaking = False
 
-    # Rysowanie tła
     if background_image:
-        bg_y = camera_y * 0.3
-        window.blit(background_image, (0, -bg_y % HEIGHT))
-        window.blit(background_image, (0, -bg_y % HEIGHT - HEIGHT))
+        window.blit(background_image, (0, 0))
     else:
         window.fill((52, 55, 235))
     
