@@ -15,6 +15,7 @@ camera_y = 0
 
 wall_thickness      = WIDTH // 4
 right_wall_x        = WIDTH - wall_thickness
+PLAY_W              = right_wall_x - wall_thickness
 platform_width_val  = int(WIDTH * 0.15)
 platform_height_val = int(HEIGHT * 0.025)
 player_size         = int(HEIGHT * 0.15)
@@ -111,17 +112,14 @@ def draw_menu(surface, mouse_pos):
     global menu_bg_t
     menu_bg_t += 1
     t = menu_bg_t
-
     for ry in range(0, HEIGHT, 3):
         ratio = ry / HEIGHT
         pygame.draw.rect(surface, (int(28+18*ratio), int(22+12*ratio), int(15+10*ratio)),
                          (0, ry, WIDTH, 3))
-
     for gy in range(0, HEIGHT, 40):
         offset = (gy // 40 % 2) * 30
         for gx in range(-offset, WIDTH, 60):
             pygame.draw.rect(surface, (0, 0, 0), (gx, gy, 60, 40), 1)
-
     for tx, ty in [(int(WIDTH*0.1), int(HEIGHT*0.35)), (int(WIDTH*0.9), int(HEIGHT*0.35))]:
         flicker = int(4 * math.sin(t * 0.18))
         pygame.draw.rect(surface, (100, 70, 30), (tx-4, ty, 8, 22))
@@ -129,15 +127,11 @@ def draw_menu(surface, mouse_pos):
                                           ((255,160,0), 7+flicker//2),
                                           ((255,240,80), 4)]):
             pygame.draw.circle(surface, fc, (tx, ty - layer*5), r)
-
     draw_dragon_silhouette(surface, t)
-
     for sx, sy, brightness, phase in menu_stars:
         a = int(60 + 120 * (0.5 + 0.5*math.sin(t*0.05+phase)) * brightness / 2.5)
         pygame.draw.circle(surface, (min(255, a+40), min(255, a), 0), (sx, sy), 1)
-
     draw_stone_banner(surface, WIDTH//2, int(HEIGHT*0.08), int(WIDTH*0.72), int(HEIGHT*0.22))
-
     title   = "CASTLE CLIMBERS"
     total_w = sum((font_huge.size(ch)[0] if ch != " " else int(HEIGHT*0.07)) for ch in title)
     cx_t    = WIDTH//2 - total_w//2
@@ -153,21 +147,20 @@ def draw_menu(surface, mouse_pos):
         surface.blit(shd, (cx_t+4, ly+5))
         surface.blit(ltr, (cx_t, ly))
         cx_t += font_huge.size(ch)[0]
-
     sub = font_tiny.render("Wspinaj sie. Przezwyj. Zdobadz szczyt.", True, (200, 160, 80))
     surface.blit(sub, (WIDTH//2 - sub.get_width()//2, int(HEIGHT*0.295)))
-
-    draw_stone_banner(surface, WIDTH//2, int(HEIGHT*0.72), int(WIDTH*0.5), int(HEIGHT*0.23))
-    for i, (key, desc) in enumerate([("A / D", "Ruch lewo / prawo"),
-                                      ("W / SPACJA", "Skok"),
-                                      ("ESC", "Menu / Wyjscie")]):
-        yc  = int(HEIGHT*0.745) + i*int(HEIGHT*0.062)
+    draw_stone_banner(surface, WIDTH//2, int(HEIGHT*0.72), int(WIDTH*0.5), int(HEIGHT*0.235))
+    controls = [("A / D", "Ruch lewo / prawo"),
+                ("W / SPACJA", "Skok"),
+                ("F / LPM", "Strzal"),
+                ("ESC", "Menu")]
+    for i, (key, desc) in enumerate(controls):
+        yc  = int(HEIGHT*0.740) + i*int(HEIGHT*0.052)
         k_s = font_tiny.render(key, True, (255, 210, 60))
         d_s = font_tiny.render("-- " + desc, True, (190, 165, 120))
         xs  = WIDTH//2 - (k_s.get_width()+14+d_s.get_width())//2
         surface.blit(k_s, (xs, yc))
         surface.blit(d_s, (xs + k_s.get_width() + 14, yc))
-
     btn_play.update(mouse_pos)
     btn_quit.update(mouse_pos)
     btn_play.draw(surface)
@@ -218,14 +211,14 @@ OPAT_QUOTES = [
     "Hardkor to stan umyslu.\nMoj umysl jest z granitu zamkowego.",
 ]
 
-CAVE_W = int(player_size * 2.2)
-CAVE_H = int(player_size * 2.5)
+CAVE_W = int(player_size * 2.4)
+CAVE_H = int(player_size * 2.6)
 
 
 class Opat:
     def __init__(self, wall_side, y_world):
         self.wall_side     = wall_side
-        self.y_world       = y_world
+        self.y_world       = int(y_world)
         self.size          = int(player_size * 0.85)
         self.talking       = False
         self.talk_timer    = 0
@@ -235,24 +228,33 @@ class Opat:
         self.active        = True
 
         if wall_side == "left":
-            self.cave_x  = wall_thickness - CAVE_W
-            self.opat_x  = self.cave_x + CAVE_W//2 - self.size//2
+            self.cave_x = 0
+            self.opat_x = CAVE_W//2 - self.size//2
         else:
-            self.cave_x  = right_wall_x
-            self.opat_x  = self.cave_x + CAVE_W//2 - self.size//2
+            self.cave_x = right_wall_x + wall_thickness - CAVE_W
+            self.opat_x = self.cave_x + CAVE_W//2 - self.size//2
 
-        self.opat_y  = y_world - self.size
+        self.opat_y = self.y_world - self.size
         self.cave_rect_world = pygame.Rect(
-            self.cave_x, y_world - CAVE_H, CAVE_W, CAVE_H
+            self.cave_x,
+            self.y_world - CAVE_H,
+            CAVE_W,
+            CAVE_H
+        )
+        self.entrance_rect = pygame.Rect(
+            wall_thickness - 30 if wall_side == "left" else right_wall_x - 10,
+            self.y_world - CAVE_H,
+            40,
+            CAVE_H
         )
 
     def check_player(self, px, py):
         if not self.active:
             return False
-        pr         = pygame.Rect(px+10, py+10, player_size-20, player_size-20)
+        pr         = pygame.Rect(int(px)+10, int(py)+10, player_size-20, player_size-20)
         inside_now = self.cave_rect_world.colliderect(pr)
         if inside_now and not self.player_inside and not self.talking:
-            self.talking   = True
+            self.talking    = True
             self.talk_timer = 0
             self.current_q  = OPAT_QUOTES[self.q_index % len(OPAT_QUOTES)]
         self.player_inside = inside_now
@@ -265,56 +267,54 @@ class Opat:
                 self.talking    = False
                 self.talk_timer = 0
                 self.q_index    = (self.q_index + 1) % len(OPAT_QUOTES)
-                self.active     = False
 
     def draw(self, surface):
         if not self.active:
             return
-        cave_sy = int(self.y_world - CAVE_H - camera_y)
-        opat_sy = int(self.opat_y - camera_y)
+        cave_top = self.y_world - CAVE_H
+        cave_sy  = int(cave_top - camera_y)
+        opat_sy  = int(self.opat_y - camera_y)
 
-        if not (-CAVE_H - 50 < cave_sy < HEIGHT + 50):
+        if not (-CAVE_H*2 < cave_sy < HEIGHT + CAVE_H):
             return
 
+        cx = self.cave_x
+
+        pygame.draw.rect(surface, (32, 22, 12), (cx, cave_sy, CAVE_W, CAVE_H))
+
+        arch_r  = CAVE_W // 2
+        pygame.draw.ellipse(surface, (32, 22, 12),
+                            (cx, cave_sy - arch_r, CAVE_W, arch_r * 2))
+
+        for sy_line in range(cave_sy, cave_sy + CAVE_H, 16):
+            pygame.draw.line(surface, (50, 38, 22), (cx, sy_line), (cx + CAVE_W, sy_line), 1)
+        for sx_line in range(cx, cx + CAVE_W, 20):
+            pygame.draw.line(surface, (50, 38, 22), (sx_line, cave_sy), (sx_line, cave_sy + CAVE_H), 1)
+
+        floor_y = cave_sy + CAVE_H - platform_height_val
+        pygame.draw.rect(surface, (90, 60, 25), (cx, floor_y, CAVE_W, platform_height_val))
+        pygame.draw.rect(surface, (120, 80, 35), (cx, floor_y, CAVE_W, platform_height_val), 2)
+
+        border_col = (90, 68, 35)
         if self.wall_side == "left":
-            arch_x = wall_thickness - CAVE_W
+            entrance_x = cx + CAVE_W
+            pygame.draw.line(surface, border_col, (entrance_x, cave_sy), (entrance_x, cave_sy + CAVE_H), 4)
         else:
-            arch_x = right_wall_x
-
-        pygame.draw.rect(surface, (38, 28, 18),
-                         (arch_x, cave_sy, CAVE_W, CAVE_H))
-
-        arch_cx = arch_x + CAVE_W // 2
-        arch_cy = cave_sy
-        pygame.draw.ellipse(surface, (38, 28, 18),
-                            (arch_cx - CAVE_W//2, arch_cy - CAVE_W//3,
-                             CAVE_W, CAVE_W//3 * 2))
-
-        for stone_y in range(cave_sy, cave_sy + CAVE_H, 18):
-            pygame.draw.line(surface, (55, 42, 28),
-                             (arch_x, stone_y), (arch_x + CAVE_W, stone_y), 1)
-        for stone_x in range(arch_x, arch_x + CAVE_W, 22):
-            pygame.draw.line(surface, (55, 42, 28),
-                             (stone_x, cave_sy), (stone_x, cave_sy + CAVE_H), 1)
-
-        if self.wall_side == "left":
-            pygame.draw.line(surface, (80, 60, 30),
-                             (arch_x + CAVE_W, cave_sy),
-                             (arch_x + CAVE_W, cave_sy + CAVE_H), 3)
-        else:
-            pygame.draw.line(surface, (80, 60, 30),
-                             (arch_x, cave_sy),
-                             (arch_x, cave_sy + CAVE_H), 3)
+            entrance_x = cx
+            pygame.draw.line(surface, border_col, (entrance_x, cave_sy), (entrance_x, cave_sy + CAVE_H), 4)
+        pygame.draw.arc(surface, border_col,
+                        pygame.Rect(cx, cave_sy - arch_r, CAVE_W, arch_r * 2),
+                        0, math.pi, 3)
 
         for ci in range(2):
-            torch_x = arch_x + (CAVE_W//4 if ci == 0 else 3*CAVE_W//4)
-            torch_y = cave_sy + CAVE_H//5
-            pygame.draw.rect(surface, (80, 55, 20), (torch_x-2, torch_y, 4, 10))
+            tx = cx + (CAVE_W//5 if ci == 0 else 4*CAVE_W//5)
+            ty = cave_sy + CAVE_H//6
+            pygame.draw.rect(surface, (80, 55, 20), (tx-2, ty, 4, 10))
             flick = int(3 * math.sin(pygame.time.get_ticks()*0.005 + ci*2))
-            pygame.draw.circle(surface, (255, 100, 0), (torch_x, torch_y - 2 - flick), 5+flick)
-            pygame.draw.circle(surface, (255, 210, 60), (torch_x, torch_y - 2 - flick), 3)
+            pygame.draw.circle(surface, (255, 100, 0), (tx, ty - 3 - flick), 5+flick)
+            pygame.draw.circle(surface, (255, 220, 60), (tx, ty - 3 - flick), 2)
 
-        pygame.draw.rect(surface, (60, 45, 30),
+        pygame.draw.rect(surface, (58, 42, 25),
                          (self.opat_x + self.size//4, int(opat_sy + self.size*0.35),
                           self.size//2, int(self.size*0.65)), border_radius=4)
         pygame.draw.circle(surface, (215, 175, 135),
@@ -329,7 +329,8 @@ class Opat:
         pygame.draw.line(surface, (200, 170, 80), (ccx-8, ccy-4), (ccx+8, ccy-4), 3)
 
         lbl = font_tiny.render("OPAT", True, (255, 210, 60))
-        surface.blit(lbl, (self.opat_x + self.size//2 - lbl.get_width()//2, opat_sy - 28))
+        surface.blit(lbl, (self.opat_x + self.size//2 - lbl.get_width()//2,
+                           opat_sy - 30))
 
         if self.talking:
             self._draw_bubble(surface, opat_sy)
@@ -343,19 +344,100 @@ class Opat:
         bh2    = len(lines) * line_h + pad * 2
 
         if self.wall_side == "left":
-            bx2 = wall_thickness + 10
+            bx2 = self.cave_x + CAVE_W + 8
         else:
-            bx2 = right_wall_x - bw2 - 10
+            bx2 = self.cave_x - bw2 - 8
 
         by2 = int(sy - bh2 - 10)
+        by2 = max(10, by2)
+
         pygame.draw.rect(surface, (240, 230, 190), (bx2, by2, bw2, bh2), border_radius=10)
         pygame.draw.rect(surface, (150, 110, 50), (bx2, by2, bw2, bh2), 2, border_radius=10)
-        tip = self.opat_x + self.size//2
-        pygame.draw.polygon(surface, (240, 230, 190),
-                            [(tip-8, by2+bh2), (tip+8, by2+bh2), (tip, by2+bh2+14)])
         for li, line in enumerate(lines):
             ts = font_tiny.render(line, True, (60, 40, 10))
             surface.blit(ts, (bx2+pad, by2+pad+li*line_h))
+
+
+class Bullet:
+    SPEED = int(HEIGHT * 0.016)
+    SIZE  = 8
+
+    def __init__(self, px, py):
+        self.x       = float(px + player_size // 2)
+        self.world_y = float(py)
+        self.alive   = True
+
+    def update(self):
+        self.world_y -= self.SPEED
+        if self.world_y - camera_y < -HEIGHT:
+            self.alive = False
+
+    def draw(self, surface):
+        sy = int(self.world_y - camera_y)
+        if not (-20 < sy < HEIGHT + 20):
+            return
+        glow_surf = pygame.Surface((self.SIZE*4, self.SIZE*4), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (255, 180, 0, 60),
+                           (self.SIZE*2, self.SIZE*2), self.SIZE*2)
+        surface.blit(glow_surf, (int(self.x) - self.SIZE*2, sy - self.SIZE*2))
+        pygame.draw.circle(surface, (255, 220, 60), (int(self.x), sy), self.SIZE)
+        pygame.draw.circle(surface, (255, 255, 200), (int(self.x), sy), self.SIZE//2)
+
+    def get_world_rect(self):
+        return pygame.Rect(int(self.x) - self.SIZE, int(self.world_y) - self.SIZE,
+                           self.SIZE*2, self.SIZE*2)
+
+
+class FallingRock:
+    def __init__(self, y_world_top):
+        self.x     = float(random.randint(wall_thickness + 20, right_wall_x - 40))
+        self.y     = float(y_world_top - random.randint(0, int(HEIGHT * 3)))
+        self.size  = random.randint(12, 22)
+        self.speed = random.uniform(2.5, 5.0)
+        self.alive = True
+        self.angle = 0.0
+
+    def update(self):
+        self.y    += self.speed
+        self.angle = (self.angle + 3) % 360
+
+    def draw(self, surface):
+        sy = int(self.y - camera_y)
+        if not (-30 < sy < HEIGHT + 30):
+            return
+        pts = []
+        for k in range(6):
+            a   = math.radians(self.angle + k * 60)
+            jit = random.randint(-2, 2)
+            pts.append((int(self.x) + int((self.size+jit)*math.cos(a)),
+                        sy          + int((self.size+jit)*math.sin(a))))
+        pygame.draw.polygon(surface, (110, 95, 75), pts)
+        pygame.draw.polygon(surface, (150, 130, 100), pts, 2)
+
+    def get_rect(self):
+        return pygame.Rect(int(self.x)-self.size, int(self.y)-self.size,
+                           self.size*2, self.size*2)
+
+
+class Checkpoint:
+    def __init__(self, y_world, score_val):
+        self.y_world   = y_world
+        self.score_val = score_val
+        self.reached   = False
+        self.x         = WIDTH // 2 - 10
+
+    def draw(self, surface):
+        sy = int(self.y_world - camera_y)
+        if not (-50 < sy < HEIGHT + 50):
+            return
+        pole_col  = (180, 160, 80) if self.reached else (160, 140, 60)
+        flag_col  = (50, 200, 80)  if self.reached else (200, 50, 50)
+        pygame.draw.line(surface, pole_col, (self.x, sy), (self.x, sy - 40), 3)
+        pygame.draw.polygon(surface, flag_col,
+                            [(self.x, sy-40), (self.x+20, sy-33), (self.x, sy-26)])
+        if self.reached:
+            lbl = font_tiny.render("CP " + str(self.score_val), True, (80, 255, 120))
+            surface.blit(lbl, (self.x - 10, sy - 60))
 
 
 class Monster:
@@ -363,11 +445,16 @@ class Monster:
         self.size  = int(player_size * 0.7)
         self.speed = move_speed * 0.4
         self.x     = float(x_pos)
-        self.y     = y_pos
+        self.y     = int(y_pos)
         self.dir   = random.choice([-1, 1])
         self.anim  = 0
+        self.alive = True
+        self.death_timer = 0
 
     def update(self):
+        if not self.alive:
+            self.death_timer += 1
+            return
         self.x    += self.speed * self.dir
         self.anim += 1
         if self.x <= wall_thickness:
@@ -381,9 +468,21 @@ class Monster:
         sy = self.y - camera_y
         if not (-50 < sy < HEIGHT + 50):
             return
+        if not self.alive:
+            alpha = max(0, 255 - self.death_timer * 25)
+            s = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
+            pygame.draw.rect(s, (255, 100, 50, alpha), (0, 0, self.size, self.size), border_radius=6)
+            for k in range(5):
+                ang = math.radians(self.death_timer * 20 + k * 72)
+                px2 = self.size//2 + int(self.death_timer * 3 * math.cos(ang))
+                py2 = self.size//2 + int(self.death_timer * 3 * math.sin(ang))
+                if 0 <= px2 < self.size and 0 <= py2 < self.size:
+                    pygame.draw.circle(s, (255, 200, 0, alpha), (px2, py2), 4)
+            surface.blit(s, (int(self.x), int(sy)))
+            return
         ix   = int(self.x)
         bob  = int(3 * math.sin(self.anim * 0.15))
-        body = pygame.Rect(ix, sy+bob, self.size, self.size)
+        body = pygame.Rect(ix, int(sy)+bob, self.size, self.size)
         pygame.draw.rect(surface, (160, 30, 60), body, border_radius=6)
         pygame.draw.rect(surface, (220, 50, 80), body, 2, border_radius=6)
         eye_y = int(sy + bob + self.size*0.28)
@@ -403,6 +502,8 @@ class Monster:
             ])
 
     def get_rect(self):
+        if not self.alive:
+            return pygame.Rect(0, 0, 0, 0)
         m = 5
         return pygame.Rect(int(self.x)+m, self.y+m, self.size-m*2, self.size-m*2)
 
@@ -454,24 +555,18 @@ def generate_platforms():
     plist = []
     yp    = HEIGHT - int(HEIGHT * 0.15)
     plist.append(Platform(yp, "center", False))
-
-    sides   = ["left", "center", "right"]
-    last    = "center"
-
-    for i in range(199):
+    sides = ["left", "center", "right"]
+    last  = "center"
+    for _ in range(199):
         jump_range = random.randint(int(HEIGHT*0.17), int(HEIGHT*0.22))
         yp        -= jump_range
-
-        available = [s for s in sides if s != last]
-        real_side = random.choice(available)
-        last      = real_side
+        available  = [s for s in sides if s != last]
+        real_side  = random.choice(available)
+        last       = real_side
         plist.append(Platform(yp, real_side, False))
-
         if random.randint(1, 4) == 1:
             fake_options = [s for s in sides if s != real_side]
-            fake_side    = random.choice(fake_options)
-            plist.append(Platform(yp, fake_side, True))
-
+            plist.append(Platform(yp, random.choice(fake_options), True))
     return plist
 
 
@@ -487,8 +582,6 @@ def draw_tiled_wall(surface, wall_rect):
 
 def spawn_monsters(plist):
     valid  = [p for p in plist[3:] if p.visible and not p.is_fake]
-    if not valid:
-        return []
     count  = random.randint(8, 12)
     chosen = random.sample(valid, min(count, len(valid)))
     ms     = []
@@ -499,17 +592,55 @@ def spawn_monsters(plist):
     return ms
 
 
+def spawn_rocks(plist):
+    if not plist:
+        return []
+    top_y = plist[-1].rect.y if plist else 0
+    rocks = []
+    for _ in range(25):
+        rocks.append(FallingRock(top_y))
+    return rocks
+
+
+def spawn_checkpoints(plist):
+    real = [p for p in plist if not p.is_fake and p.visible]
+    real.sort(key=lambda p: p.rect.y)
+    cps = []
+    targets = [50, 100, 150]
+    idx = 0
+    for score_val in targets:
+        while idx < len(real) and real[idx].scored_index_approx() if hasattr(real[idx], 'scored_index_approx') else False:
+            idx += 1
+        if idx < len(real):
+            cp_y = real[min(idx + score_val - 1, len(real)-1)].rect.y
+            cps.append(Checkpoint(cp_y, score_val))
+    return cps
+
+
 def try_spawn_opat(plist):
-    real_sorted = [p for p in plist if not p.is_fake and p.visible]
-    if len(real_sorted) < 10:
+    real = [p for p in plist if not p.is_fake and p.visible]
+    if len(real) < 10:
         return None
-    chosen = random.choice(real_sorted[5:min(30, len(real_sorted))])
+    chosen = random.choice(real[5:min(30, len(real))])
     wall_side = random.choice(["left", "right"])
     return Opat(wall_side, chosen.rect.y)
 
 
+def make_checkpoints(plist):
+    real = sorted([p for p in plist if not p.is_fake and p.visible],
+                  key=lambda p: p.rect.y, reverse=True)
+    cps  = []
+    for score_val in [50, 100, 150]:
+        idx = min(score_val, len(real)-1)
+        cps.append(Checkpoint(real[idx].rect.y, score_val))
+    return cps
+
+
 platforms         = []
 monsters          = []
+bullets           = []
+rocks             = []
+checkpoints       = []
 opat_npc          = None
 x                 = WIDTH // 2
 y                 = HEIGHT - int(HEIGHT * 0.15)
@@ -529,24 +660,24 @@ danger_y          = HEIGHT + int(HEIGHT * 0.3)
 danger_speed      = 2
 danger_moving     = False
 danger_cave_pause = False
+shoot_cooldown    = 0
+checkpoint_y      = None
+checkpoint_score  = 0
 left_wall_rect    = pygame.Rect(0, 0, wall_thickness, 100000)
 right_wall_rect   = pygame.Rect(right_wall_x, 0, wall_thickness, 100000)
 
 
-def reset_game():
+def reset_game(from_checkpoint=False):
     global x, y, y_velocity, camera_y, score, on_ground, jump_timer
     global fade_alpha, fade_in, show_run_text, run_text_timer
     global current_frame, anim_timer, facing_right, moving_anim
     global danger_y, danger_speed, danger_moving, danger_cave_pause
-    global platforms, monsters, opat_npc
+    global platforms, monsters, bullets, rocks, checkpoints, opat_npc
+    global shoot_cooldown
+    global checkpoint_y, checkpoint_score
 
-    x              = WIDTH // 2
-    y              = HEIGHT - int(HEIGHT * 0.15)
-    y_velocity     = 0.0
-    camera_y       = 0
-    score          = 0
-    on_ground      = True
-    jump_timer     = 0
+    bullets        = []
+    shoot_cooldown = 0
     fade_alpha     = 255
     fade_in        = True
     show_run_text  = True
@@ -555,24 +686,52 @@ def reset_game():
     anim_timer     = 0
     facing_right   = True
     moving_anim    = False
-    danger_y       = HEIGHT + int(HEIGHT * 0.3)
-    danger_speed   = 2
-    danger_moving  = False
-    danger_cave_pause = False
 
-    platforms = generate_platforms()
-    monsters  = spawn_monsters(platforms)
-    opat_npc  = try_spawn_opat(platforms)
+    if from_checkpoint and checkpoint_y is not None:
+        x          = WIDTH // 2
+        y          = checkpoint_y - player_size - 10
+        y_velocity = 0.0
+        camera_y   = y - HEIGHT*2//3
+        score      = checkpoint_score
+        danger_y   = y + HEIGHT * 0.6
+        danger_moving = True
+        danger_cave_pause = False
+        on_ground  = False
+        jump_timer = 0
+        for m in monsters:
+            m.alive = True
+        rocks[:] = [r for r in rocks if r.alive]
+    else:
+        x              = WIDTH // 2
+        y              = HEIGHT - int(HEIGHT * 0.15)
+        y_velocity     = 0.0
+        camera_y       = 0
+        score          = 0
+        on_ground      = True
+        jump_timer     = 0
+        danger_y       = HEIGHT + int(HEIGHT * 0.3)
+        danger_speed   = 2
+        danger_moving  = False
+        danger_cave_pause = False
+        checkpoint_y   = None
+        checkpoint_score = 0
+        platforms      = generate_platforms()
+        monsters       = spawn_monsters(platforms)
+        rocks          = spawn_rocks(platforms)
+        checkpoints    = make_checkpoints(platforms)
+        opat_npc       = try_spawn_opat(platforms)
 
 
 reset_game()
 
-clock    = pygame.time.Clock()
-run_game = True
+clock      = pygame.time.Clock()
+run_game   = True
+shoot_held = False
 
 while run_game:
     clock.tick(60)
     mouse_pos = pygame.mouse.get_pos()
+    now       = pygame.time.get_ticks()
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -583,6 +742,13 @@ while run_game:
                     run_game = False
                 else:
                     game_state = STATE_MENU
+            if event.key == pygame.K_f and game_state == STATE_PLAYING and shoot_cooldown <= 0:
+                bullets.append(Bullet(x, y))
+                shoot_cooldown = 18
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and game_state == STATE_PLAYING:
+            if shoot_cooldown <= 0:
+                bullets.append(Bullet(x, y))
+                shoot_cooldown = 18
         if game_state == STATE_MENU:
             if btn_play.is_clicked(event):
                 reset_game()
@@ -610,27 +776,42 @@ while run_game:
         moving_anim      = True
         moved_this_frame = True
 
-    x = max(wall_thickness, min(x, right_wall_x - player_size))
+    cave_open_left  = False
+    cave_open_right = False
+    if opat_npc and opat_npc.active:
+        ent = opat_npc.entrance_rect
+        py_top = int(y)
+        py_bot = int(y) + player_size
+        if py_bot > ent.top and py_top < ent.bottom:
+            if opat_npc.wall_side == "left":
+                cave_open_left  = True
+            else:
+                cave_open_right = True
+
+    left_limit  = 0 if cave_open_left  else wall_thickness
+    right_limit = WIDTH - player_size if cave_open_right else right_wall_x - player_size
+    x = max(left_limit, min(x, right_limit))
 
     if moved_this_frame and not danger_moving:
         danger_moving = True
 
     if jump_timer > 0:
         jump_timer -= 1
+    if shoot_cooldown > 0:
+        shoot_cooldown -= 1
 
     on_ground = False
-
     for platform in platforms:
         if not platform.visible:
             continue
-        ph = pygame.Rect(x+10, y+15, player_size-20, player_size-25)
+        ph = pygame.Rect(int(x)+10, int(y)+15, player_size-20, player_size-25)
         if (y_velocity >= 0
                 and ph.bottom <= platform.rect.y + 8
                 and ph.bottom + y_velocity >= platform.rect.y
                 and ph.right  > platform.rect.x + 5
                 and ph.left   < platform.rect.right - 5):
             if platform.is_fake:
-                reset_game()
+                reset_game(from_checkpoint=checkpoint_y is not None)
                 break
             else:
                 y          = platform.rect.y - player_size
@@ -641,8 +822,22 @@ while run_game:
                     score += 1
                 if not platform.breaking:
                     platform.breaking    = True
-                    platform.break_timer = pygame.time.get_ticks()
+                    platform.break_timer = now
                 break
+
+    if not on_ground and opat_npc and opat_npc.active:
+        floor_world_y = opat_npc.y_world
+        floor_x       = opat_npc.cave_x
+        ph_c = pygame.Rect(int(x)+10, int(y)+15, player_size-20, player_size-25)
+        floor_rect = pygame.Rect(floor_x, floor_world_y - platform_height_val, CAVE_W, platform_height_val)
+        if (y_velocity >= 0
+                and ph_c.bottom <= floor_world_y + 8
+                and ph_c.bottom + y_velocity >= floor_world_y
+                and ph_c.right  > floor_rect.x + 5
+                and ph_c.left   < floor_rect.right - 5):
+            y          = floor_world_y - player_size
+            y_velocity = 0.0
+            on_ground  = True
 
     if not on_ground and y + player_size >= HEIGHT:
         y          = HEIGHT - player_size
@@ -659,6 +854,12 @@ while run_game:
     y          += y_velocity
     camera_y    = y - HEIGHT*2//3
 
+    for cp in checkpoints:
+        if not cp.reached and score >= cp.score_val:
+            cp.reached       = True
+            checkpoint_y     = cp.y_world
+            checkpoint_score = cp.score_val
+
     if opat_npc:
         opat_npc.update()
         danger_cave_pause = opat_npc.check_player(x, y)
@@ -668,23 +869,60 @@ while run_game:
     if danger_moving and not danger_cave_pause:
         danger_y -= danger_speed
 
-    ph2    = pygame.Rect(x+10, y+15, player_size-20, player_size-25)
+    for bullet in bullets:
+        bullet.update()
+
+    to_remove = []
+    for bullet in bullets:
+        if not bullet.alive:
+            to_remove.append(bullet)
+            continue
+        bwr = bullet.get_world_rect()
+        for monster in monsters:
+            if monster.alive and monster.get_rect().colliderect(bwr):
+                monster.alive  = False
+                bullet.alive   = False
+                to_remove.append(bullet)
+                break
+    for b in to_remove:
+        if b in bullets:
+            bullets.remove(b)
+
+    monsters[:] = [m for m in monsters if m.alive or m.death_timer < 10]
+
+    for rock in rocks:
+        rock.update()
+        if rock.y > danger_y + HEIGHT:
+            rock.alive = False
+    rocks[:] = [r for r in rocks if r.alive]
+
+    ph2    = pygame.Rect(int(x)+10, int(y)+15, player_size-20, player_size-25)
     killed = False
+
     for monster in monsters:
         monster.update()
-        if not killed and monster.get_rect().colliderect(ph2):
-            reset_game()
+        if monster.alive and monster.get_rect().colliderect(ph2):
+            reset_game(from_checkpoint=checkpoint_y is not None)
             killed = True
             break
+
+    if not killed:
+        for rock in rocks:
+            rr = rock.get_rect()
+            rr_screen = pygame.Rect(rr.x, int(rr.y - camera_y), rr.width, rr.height)
+            ph2_screen = pygame.Rect(int(x)+10, int(y - camera_y)+15, player_size-20, player_size-25)
+            if rr_screen.colliderect(ph2_screen):
+                reset_game(from_checkpoint=checkpoint_y is not None)
+                killed = True
+                break
 
     if killed:
         continue
 
     if y + player_size > danger_y:
-        reset_game()
+        reset_game(from_checkpoint=checkpoint_y is not None)
         continue
 
-    now = pygame.time.get_ticks()
     for platform in platforms:
         if platform.breaking and platform.visible:
             if now - platform.break_timer >= 1000:
@@ -709,6 +947,9 @@ while run_game:
     if opat_npc:
         opat_npc.draw(window)
 
+    for cp in checkpoints:
+        cp.draw(window)
+
     lava_sy = int(danger_y - camera_y)
     if lava_sy < HEIGHT:
         pygame.draw.rect(window, (255, 40, 20), (0, lava_sy, WIDTH, HEIGHT - lava_sy + 10))
@@ -720,24 +961,34 @@ while run_game:
     for platform in platforms:
         platform.draw(window)
 
+    for rock in rocks:
+        rock.draw(window)
+
     for monster in monsters:
         monster.draw(window)
 
-    psy = y - camera_y
+    for bullet in bullets:
+        bullet.draw(window)
+
+    psy = int(y - camera_y)
     if not on_ground:
-        window.blit(flying_frames[current_frame], (x, psy))
+        window.blit(flying_frames[current_frame], (int(x), psy))
     elif moving_anim:
         if facing_right:
-            window.blit(walking_right_frames[current_frame], (x, psy))
+            window.blit(walking_right_frames[current_frame], (int(x), psy))
         else:
-            window.blit(walking_left_frames[current_frame], (x, psy))
+            window.blit(walking_left_frames[current_frame], (int(x), psy))
     else:
-        window.blit(idle_frames[current_frame], (x, psy))
+        window.blit(idle_frames[current_frame], (int(x), psy))
 
     sc_txt = font_score.render("Wynik: " + str(score), True, (255, 220, 100))
     rm_txt = font_score.render("Pozostalo: " + str(max(0, 200-score)), True, (200, 180, 120))
     window.blit(sc_txt, (20, 20))
     window.blit(rm_txt, (20, 20 + int(HEIGHT*0.06)))
+
+    if checkpoint_y is not None:
+        cp_txt = font_tiny.render("CP aktywny: " + str(checkpoint_score) + " pkt", True, (80, 255, 120))
+        window.blit(cp_txt, (WIDTH - cp_txt.get_width() - 20, 20))
 
     lava_dist = danger_y - (y + player_size)
     if lava_dist < HEIGHT*0.3 and danger_moving:
