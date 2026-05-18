@@ -228,6 +228,24 @@ def load_frames(folder, prefix, count, size):
     return frames
 
 
+knight_frames = []
+for i in range(36):
+    try:
+        f = pygame.image.load(os.path.join("Graphic", "Knight", f"Idle{i}.png"))
+        knight_frames.append(pygame.transform.scale(f, (int(player_size * 0.7), int(player_size * 0.7))))
+    except Exception:
+        fb = pygame.Surface((int(player_size * 0.7), int(player_size * 0.7)))
+        fb.fill((160, 30, 60))
+        knight_frames.append(fb)
+
+opat_image = None
+try:
+    opat_image = pygame.image.load(os.path.join("Graphic", "Opacisko.png"))
+    opat_size  = int(player_size * 0.85)
+    opat_image = pygame.transform.scale(opat_image, (opat_size, opat_size))
+except Exception:
+    pass
+
 flying_frames        = load_frames("Flying",       "Flying",    36, player_size)
 walking_right_frames = load_frames("WalkingRight", "WalkRight", 36, player_size)
 walking_left_frames  = load_frames("WalkingLeft",  "WalkLeft",  36, player_size)
@@ -336,19 +354,22 @@ class Opat:
             pygame.draw.circle(surface, (255, 100, 0), (tx, ty - 3 - flick), 5 + flick)
             pygame.draw.circle(surface, (255, 220, 60), (tx, ty - 3 - flick), 2)
 
-        pygame.draw.rect(surface, (58, 42, 25),
-                         (self.opat_x + self.size // 4, int(opat_sy + self.size * 0.35),
-                          self.size // 2, int(self.size * 0.65)), border_radius=4)
-        pygame.draw.circle(surface, (215, 175, 135),
-                           (self.opat_x + self.size // 2, int(opat_sy + self.size * 0.28)),
-                           self.size // 6)
-        pygame.draw.circle(surface, (185, 145, 110),
-                           (self.opat_x + self.size // 2, int(opat_sy + self.size * 0.22)),
-                           self.size // 9)
-        ccx = self.opat_x + self.size // 2
-        ccy = int(opat_sy + self.size * 0.55)
-        pygame.draw.line(surface, (200, 170, 80), (ccx, ccy - 14), (ccx, ccy + 14), 3)
-        pygame.draw.line(surface, (200, 170, 80), (ccx - 8, ccy - 4), (ccx + 8, ccy - 4), 3)
+        if opat_image:
+            surface.blit(opat_image, (self.opat_x, opat_sy))
+        else:
+            pygame.draw.rect(surface, (58, 42, 25),
+                             (self.opat_x + self.size // 4, int(opat_sy + self.size * 0.35),
+                              self.size // 2, int(self.size * 0.65)), border_radius=4)
+            pygame.draw.circle(surface, (215, 175, 135),
+                               (self.opat_x + self.size // 2, int(opat_sy + self.size * 0.28)),
+                               self.size // 6)
+            pygame.draw.circle(surface, (185, 145, 110),
+                               (self.opat_x + self.size // 2, int(opat_sy + self.size * 0.22)),
+                               self.size // 9)
+            ccx = self.opat_x + self.size // 2
+            ccy = int(opat_sy + self.size * 0.55)
+            pygame.draw.line(surface, (200, 170, 80), (ccx, ccy - 14), (ccx, ccy + 14), 3)
+            pygame.draw.line(surface, (200, 170, 80), (ccx - 8, ccy - 4), (ccx + 8, ccy - 4), 3)
 
         lbl = font_tiny.render("OPAT", True, (255, 210, 60))
         surface.blit(lbl, (self.opat_x + self.size // 2 - lbl.get_width() // 2, opat_sy - 30))
@@ -475,26 +496,10 @@ class Monster:
                     pygame.draw.circle(s, (255, 200, 0, alpha), (px2, py2), 4)
             surface.blit(s, (int(self.x), int(sy)))
             return
-        ix   = int(self.x)
-        bob  = int(3 * math.sin(self.anim * 0.15))
-        body = pygame.Rect(ix, int(sy) + bob, self.size, self.size)
-        pygame.draw.rect(surface, (160, 30, 60), body, border_radius=6)
-        pygame.draw.rect(surface, (220, 50, 80), body, 2, border_radius=6)
-        eye_y = int(sy + bob + self.size * 0.28)
-        for ex in [ix + self.size // 3, ix + 2 * self.size // 3]:
-            pygame.draw.circle(surface, (255, 240, 0), (ex, eye_y), 5)
-            pygame.draw.circle(surface, (0, 0, 0), (ex, eye_y), 2)
-        hx = ix + self.size // 2
-        hy = int(sy + bob)
-        pygame.draw.polygon(surface, (120, 10, 30), [(hx - 12, hy), (hx - 6, hy - 16), (hx, hy)])
-        pygame.draw.polygon(surface, (120, 10, 30), [(hx, hy), (hx + 6, hy - 16), (hx + 12, hy)])
-        for ti in range(3):
-            tx2 = ix + self.size // 4 + ti * (self.size // 4)
-            pygame.draw.polygon(surface, (255, 255, 255), [
-                (tx2, int(sy + bob + self.size * 0.7)),
-                (tx2 + 4, int(sy + bob + self.size * 0.7)),
-                (tx2 + 2, int(sy + bob + self.size * 0.82))
-            ])
+        frame = knight_frames[self.anim % len(knight_frames)]
+        if self.dir == -1:
+            frame = pygame.transform.flip(frame, True, False)
+        surface.blit(frame, (int(self.x), int(sy)))
 
     def get_rect(self):
         if not self.alive:
