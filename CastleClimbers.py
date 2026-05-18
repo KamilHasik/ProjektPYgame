@@ -232,9 +232,9 @@ knight_frames = []
 for i in range(36):
     try:
         f = pygame.image.load(os.path.join("Graphic", "Knight", f"Idle{i}.png"))
-        knight_frames.append(pygame.transform.scale(f, (int(player_size * 0.7), int(player_size * 0.7))))
+        knight_frames.append(pygame.transform.scale(f, (int(player_size * 1.3), int(player_size * 1.3))))
     except Exception:
-        fb = pygame.Surface((int(player_size * 0.7), int(player_size * 0.7)))
+        fb = pygame.Surface((int(player_size * 1.3), int(player_size * 1.3)))
         fb.fill((160, 30, 60))
         knight_frames.append(fb)
 
@@ -246,7 +246,8 @@ try:
 except Exception:
     pass
 
-flying_frames        = load_frames("Flying",       "Flying",    36, player_size)
+flying_size          = int(player_size * 1.45)
+flying_frames        = load_frames("Flying",       "Flying",    36, flying_size)
 walking_right_frames = load_frames("WalkingRight", "WalkRight", 36, player_size)
 walking_left_frames  = load_frames("WalkingLeft",  "WalkLeft",  36, player_size)
 idle_frames          = load_frames("Idle",         "Idle",      36, player_size)
@@ -458,7 +459,7 @@ class FallingRock:
 
 class Monster:
     def __init__(self, x_pos, y_pos):
-        self.size        = int(player_size * 0.7)
+        self.size        = int(player_size * 1.3)
         self.speed       = move_speed * 0.4
         self.x           = float(x_pos)
         self.y           = int(y_pos)
@@ -944,7 +945,8 @@ while run_game:
     psy = int(y - camera_y)
     is_flying = airborne_frames > 4 or y_velocity < -0.5
     if is_flying:
-        window.blit(flying_frames[current_frame], (int(x), psy))
+        offset = (flying_size - player_size) // 2
+        window.blit(flying_frames[current_frame], (int(x) - offset, psy - offset))
     elif moving_anim:
         if facing_right:
             window.blit(walking_right_frames[current_frame], (int(x), psy))
